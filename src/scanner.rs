@@ -105,7 +105,7 @@ impl Scanner {
                 '0'..='9' => self.digit(),
                 'a'..='z' | 'A'..='Z' | '_' => self.identifier(),
                 _ => {
-                    print_error(self.line_number, String::from("Unexpected character."));
+                    print_error(self.line_number, "Unexpected character.");
                     self.had_error = true;
                 }
             };
@@ -172,7 +172,7 @@ impl Scanner {
 
         // Raise an error if the string was unterminated
         if self.is_at_end() {
-            print_error(self.line_number, "Unterminated string".to_string());
+            print_error(self.line_number, "Unterminated string");
             return;
         }
 
@@ -220,10 +220,10 @@ impl Scanner {
     }
 }
 
-fn print_error(line_number: usize, message: String) {
+fn print_error(line_number: usize, message: &str) {
     report(line_number, "", message);
 }
 
-fn report(line_number: usize, location: &str, message: String) {
+fn report(line_number: usize, location: &str, message: &str) {
     println!("[line {}] Error {}: {}", line_number, location, message);
 }
