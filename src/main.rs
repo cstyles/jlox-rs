@@ -4,6 +4,7 @@ mod parser;
 mod scanner;
 mod token;
 
+use parser::Parser;
 use scanner::Scanner;
 
 trait Visitor<R> {}
@@ -29,7 +30,7 @@ fn run_prompt() {
 
     while stdin.read_line(&mut line).is_ok() {
         let trimmed = String::from(line.trim());
-        run(trimmed);
+        let _ = run(trimmed);
         // run(line.clone());
 
         line.clear();
@@ -46,9 +47,16 @@ fn run(source: String) -> Result<(), ()> {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens().expect("scan error");
 
-    for token in tokens {
+    println!();
+    for token in &tokens {
         println!("{:?}", token);
     }
+
+    let mut parser = Parser::new(tokens);
+    let _expr = parser.parse();
+
+    println!();
+    dbg!(_expr);
 
     Ok(())
 }

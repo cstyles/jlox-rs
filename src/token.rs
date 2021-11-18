@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub(crate) token_type: TokenType,
     pub(crate) lexeme: String,
@@ -35,18 +35,24 @@ impl Display for Literal {
             Literal::None => write!(f, "nil"),
             Literal::String(string) => write!(f, "{}", string),
             Literal::Number(number) => write!(f, "{}", number),
+            Literal::True => write!(f, "true"),
+            Literal::False => write!(f, "false"),
+            Literal::Nil => write!(f, "nil"),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
     None,
     String(String),
     Number(f64),
+    False,
+    True,
+    Nil,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(unused)] // TODO: remove me?
 pub enum TokenType {
     // Single-character tokens.
