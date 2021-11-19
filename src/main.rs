@@ -1,5 +1,7 @@
 use std::io::{BufRead, Write};
 
+mod interpreter;
+mod object;
 mod parser;
 mod scanner;
 mod token;
@@ -47,16 +49,24 @@ fn run(source: String) -> Result<(), ()> {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens().expect("scan error");
 
-    println!();
-    for token in &tokens {
-        println!("{:?}", token);
-    }
+    // println!();
+    // for token in &tokens {
+    //     println!("{:?}", token);
+    // }
 
     let mut parser = Parser::new(tokens);
-    let _expr = parser.parse();
+    let expr = parser.parse();
 
-    println!();
-    dbg!(_expr);
+    // println!();
+    // dbg!(&expr);
+
+    let expr = expr.ok_or(())?;
+    let object = interpreter::evaluate(expr);
+
+    match object {
+        Ok(object) => println!("{}", object),
+        Err(err) => eprintln!("{}", err),
+    }
 
     Ok(())
 }
