@@ -118,6 +118,7 @@ impl PartialOrd for Object {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         match (self, other) {
             (Self::Number(left), Self::Number(right)) => left.partial_cmp(right),
+            (Self::String(left), Self::String(right)) => Some(left.cmp(right)),
             _ => None,
         }
     }
