@@ -1,61 +1,132 @@
+use std::cell::RefCell;
 use std::fmt::Display;
 use std::ops::Not;
+use std::rc::Rc;
 
+use crate::environment::Environment;
 use crate::object::Object;
-use crate::parser::Expr;
+use crate::parser::{Expr, Stmt};
 use crate::token::{Token, TokenType};
 
-pub fn evaluate(expr: Expr) -> Result<Object, RuntimeError> {
-    match expr {
-        Expr::Binary(left, operator, right) => evaluate_binary(*left, operator, *right),
-        Expr::Grouping(expr) => evaluate(*expr),
-        Expr::Literal(lit) => Ok(Object::from(lit)),
-        Expr::Unary(operator, expr) => evaluate_unary(operator, *expr),
-    }
+#[derive(Default)]
+pub struct Interpreter {
+    environment: Rc<RefCell<Environment>>,
 }
 
-fn evaluate_unary(operator: Token, right: Expr) -> Result<Object, RuntimeError> {
-    let right = evaluate(right)?;
-
-    match (operator.token_type, &right) {
-        (TokenType::Minus, _) => (-right).context(operator, "Operand must be a number"),
-        (TokenType::Bang, _) => Ok(!right),
-        _ => unreachable!("unary expression with bad operator: {}", operator),
+impl Interpreter {
+    pub fn new() -> Self {
+        Default::default()
     }
-}
 
-fn evaluate_binary(left: Expr, operator: Token, right: Expr) -> Result<Object, RuntimeError> {
-    let left = evaluate(left)?;
-    let right = evaluate(right)?;
-
-    match operator.token_type {
-        TokenType::Minus => (left - right).assert_numbers(operator),
-        TokenType::Slash => (left / right).assert_numbers(operator),
-        TokenType::Star => (left * right).assert_numbers(operator),
-        TokenType::Plus => {
-            (left + right).context(operator, "Operands must be two numbers or two strings.")
+    pub fn evaluate(&mut self, expr: Expr) -> Result<Object, RuntimeError> {
+        match expr {
+            Expr::Binary(left, operator, right) => self.evaluate_binary(*left, operator, *right),
+            Expr::Grouping(expr) => self.evaluate(*expr),
+            Expr::Literal(lit) => Ok(Object::from(lit)),
+            Expr::Unary(operator, expr) => self.evaluate_unary(operator, *expr),
+            Expr::Variable(name) => self.environment.borrow().get(name),
+            Expr::Assign(name, expr) => {
+                let value = self.evaluate(*expr)?;
+                self.environment.borrow_mut().assign(name, value.clone())?;
+                Ok(value)
+            }
         }
-        TokenType::Greater => left
-            .partial_cmp(&right)
-            .map(|o| o.is_gt().into())
-            .assert_numbers(operator),
-        TokenType::GreaterEqual => left
-            .partial_cmp(&right)
-            .map(|o| o.is_ge().into())
-            .assert_numbers(operator),
-        TokenType::Less => left
-            .partial_cmp(&right)
-            .map(|o| o.is_lt().into())
-            .assert_numbers(operator),
-        TokenType::LessEqual => left
-            .partial_cmp(&right)
-            .map(|o| o.is_le().into())
-            .assert_numbers(operator),
-        TokenType::BangEqual => Ok(left.eq(&right).not().into()),
-        TokenType::EqualEqual => Ok(left.eq(&right).into()),
-        _ => unreachable!("not possible operands: {:?}, {:?}", left, right),
+    }
+
+    pub fn evaluate_stmt(&mut self, stmt: Stmt) -> Result<(), RuntimeError> {
+        match stmt {
+            Stmt::Expression(expr) => {
+                self.evaluate(expr)?;
+                Ok(())
+            }
+            Stmt::Print(expr) => {
+                let object = self.evaluate(expr)?;
+                println!("{}", object);
+                Ok(())
+            }
+            Stmt::Var((name, expr)) => match expr {
+                Some(expr) => {
+                    let value = self.evaluate(expr)?;
+                    self.environment.borrow_mut().define(name, value);
+                    Ok(())
+                }
+                None => {
+                    self.environment.borrow_mut().define(name, Object::Nil);
+                    Ok(())
+                }
+            },
+            Stmt::Block(statements) => {
+                let environment = Environment::from_enclosing(self.environment.clone());
+                self.execute_block(statements, environment)
+            }
+        }
+    }
+
+    fn execute_block(
+        &mut self,
+        statements: Vec<Stmt>,
+        environment: Environment,
+    ) -> Result<(), RuntimeError> {
+        let previous = self.environment.clone();
+        self.environment = Rc::new(RefCell::new(environment));
+        for statement in statements {
+            self.evaluate_stmt(statement)?;
+        }
+
+        self.environment = previous;
+
+        Ok(())
+    }
+
+    fn evaluate_unary(&mut self, operator: Token, right: Expr) -> Result<Object, RuntimeError> {
+        let right = self.evaluate(right)?;
+
+        match (operator.token_type, &right) {
+            (TokenType::Minus, _) => (-right).context(operator, "Operand must be a number"),
+            (TokenType::Bang, _) => Ok(!right),
+            _ => unreachable!("unary expression with bad operator: {}", operator),
+        }
+    }
+
+    fn evaluate_binary(
+        &mut self,
+        left: Expr,
+        operator: Token,
+        right: Expr,
+    ) -> Result<Object, RuntimeError> {
+        let left = self.evaluate(left)?;
+        let right = self.evaluate(right)?;
+
+        match operator.token_type {
+            TokenType::Minus => (left - right).assert_numbers(operator),
+            TokenType::Slash => (left / right).assert_numbers(operator),
+            TokenType::Star => (left * right).assert_numbers(operator),
+            TokenType::Plus => {
+                (left + right).context(operator, "Operands must be two numbers or two strings.")
+            }
+            TokenType::Greater => left
+                .partial_cmp(&right)
+                .map(|o| o.is_gt().into())
+                .assert_numbers(operator),
+            TokenType::GreaterEqual => left
+                .partial_cmp(&right)
+                .map(|o| o.is_ge().into())
+                .assert_numbers(operator),
+            TokenType::Less => left
+                .partial_cmp(&right)
+                .map(|o| o.is_lt().into())
+                .assert_numbers(operator),
+            TokenType::LessEqual => left
+                .partial_cmp(&right)
+                .map(|o| o.is_le().into())
+                .assert_numbers(operator),
+            TokenType::BangEqual => Ok(left.eq(&right).not().into()),
+            TokenType::EqualEqual => Ok(left.eq(&right).into()),
+            _ => unreachable!("not possible operands: {:?}, {:?}", left, right),
+        }
     }
 }
+
 #[derive(Debug)]
 pub struct RuntimeError {
     operator: Token,
@@ -65,6 +136,7 @@ pub struct RuntimeError {
 impl RuntimeError {
     pub fn new(operator: Token, message: impl ToString) -> Self {
         let message = message.to_string();
+
         Self { operator, message }
     }
 }

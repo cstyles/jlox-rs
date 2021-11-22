@@ -4,7 +4,7 @@ use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 
 use crate::token::Literal;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Object {
     Nil,
     Boolean(bool),
