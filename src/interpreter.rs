@@ -54,7 +54,7 @@ impl Interpreter {
                 println!("{}", object);
                 Ok(())
             }
-            Stmt::Var((name, expr)) => match expr {
+            Stmt::Var(name, expr) => match expr {
                 Some(expr) => {
                     let value = self.evaluate(expr)?;
                     self.environment.borrow_mut().define(name, value);

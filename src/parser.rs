@@ -86,7 +86,7 @@ pub enum Stmt {
     ),
     Expression(Expr),
     Print(Expr),
-    Var((String, Option<Expr>)),
+    Var(String, Option<Expr>),
     While(
         Expr,      // condition
         Box<Stmt>, // body
@@ -226,13 +226,13 @@ impl Parser {
                 TokenType::Semicolon,
                 "Expect ';' after variable declaration.",
             )?;
-            Ok(Stmt::Var((name.lexeme, initializer)))
+            Ok(Stmt::Var(name.lexeme, initializer))
         } else {
             self.consume(
                 TokenType::Semicolon,
                 "Expect ';' after variable declaration.",
             )?;
-            Ok(Stmt::Var((name.lexeme, None)))
+            Ok(Stmt::Var(name.lexeme, None))
         }
     }
 
