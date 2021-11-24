@@ -20,6 +20,7 @@ impl Interpreter {
 
     pub fn evaluate(&mut self, expr: Expr) -> Result<Object, RuntimeError> {
         match expr {
+            Expr::Logical(left, operator, right) => self.evaluate_logical(*left, operator, *right),
             Expr::Binary(left, operator, right) => self.evaluate_binary(*left, operator, *right),
             Expr::Grouping(expr) => self.evaluate(*expr),
             Expr::Literal(lit) => Ok(Object::from(lit)),
@@ -37,6 +38,15 @@ impl Interpreter {
         match stmt {
             Stmt::Expression(expr) => {
                 self.evaluate(expr)?;
+                Ok(())
+            }
+            Stmt::If(expr, then_branch, else_branch) => {
+                if self.evaluate(expr)?.is_truthy() {
+                    self.evaluate_stmt(*then_branch)?;
+                } else if let Some(else_branch) = *else_branch {
+                    self.evaluate_stmt(else_branch)?;
+                }
+
                 Ok(())
             }
             Stmt::Print(expr) => {
@@ -58,6 +68,14 @@ impl Interpreter {
             Stmt::Block(statements) => {
                 let environment = Environment::from_enclosing(self.environment.clone());
                 self.execute_block(statements, environment)
+            }
+            Stmt::While(condition, body) => {
+                let body = *body;
+                while self.evaluate(condition.clone())?.is_truthy() {
+                    self.evaluate_stmt(body.clone())?;
+                }
+
+                Ok(())
             }
         }
     }
@@ -86,6 +104,25 @@ impl Interpreter {
             (TokenType::Bang, _) => Ok(!right),
             _ => unreachable!("unary expression with bad operator: {}", operator),
         }
+    }
+
+    fn evaluate_logical(
+        &mut self,
+        left: Expr,
+        operator: Token,
+        right: Expr,
+    ) -> Result<Object, RuntimeError> {
+        let left = self.evaluate(left)?;
+
+        if operator.token_type == TokenType::And {
+            if !left.is_truthy() {
+                return Ok(left);
+            }
+        } else if left.is_truthy() {
+            return Ok(left);
+        }
+
+        self.evaluate(right)
     }
 
     fn evaluate_binary(
