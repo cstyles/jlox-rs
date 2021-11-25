@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crate::token::Literal;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Object {
     Nil,
     Boolean(bool),
@@ -125,6 +125,18 @@ impl PartialOrd for Object {
             (Self::Number(left), Self::Number(right)) => left.partial_cmp(right),
             (Self::String(left), Self::String(right)) => Some(left.cmp(right)),
             _ => None,
+        }
+    }
+}
+
+impl PartialEq for Object {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Boolean(left), Self::Boolean(right)) => left == right,
+            (Self::Number(left), Self::Number(right)) => left == right,
+            (Self::String(left), Self::String(right)) => left == right,
+            (Self::Nil, Self::Nil) => true,
+            _ => false,
         }
     }
 }
