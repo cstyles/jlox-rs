@@ -38,6 +38,7 @@ impl Scanner {
         Self {
             source: source.chars().collect(),
             keywords,
+            line_number: 1,
             ..Default::default()
         }
     }
