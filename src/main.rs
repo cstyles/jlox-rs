@@ -66,7 +66,7 @@ fn run(interpreter: &mut Interpreter, source: String) -> Result<(), ()> {
 
     let statements = statements.ok_or(())?;
     for statement in statements {
-        if let Err(err) = interpreter.evaluate_stmt(statement) {
+        if let Err(err) = interpreter.evaluate_stmt(&statement) {
             eprintln!("{}", err);
         }
     }

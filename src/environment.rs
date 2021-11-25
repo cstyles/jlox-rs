@@ -25,8 +25,8 @@ impl Environment {
         }
     }
 
-    pub fn define(&mut self, name: String, value: Rc<Object>) {
-        self.values.insert(name, value);
+    pub fn define(&mut self, name: &str, value: Rc<Object>) {
+        self.values.insert(name.to_string(), value);
     }
 
     pub fn get(&self, name: &Token) -> Result<Rc<Object>, RuntimeError> {
@@ -42,7 +42,7 @@ impl Environment {
         }
     }
 
-    pub fn assign(&mut self, name: Token, value: Rc<Object>) -> Result<(), RuntimeError> {
+    pub fn assign(&mut self, name: &Token, value: Rc<Object>) -> Result<(), RuntimeError> {
         if let Entry::Occupied(mut e) = self.values.entry(name.lexeme.clone()) {
             e.insert(value);
             Ok(())
@@ -50,7 +50,7 @@ impl Environment {
             match &mut self.enclosing {
                 None => {
                     let message = format!("Undefined variable: '{}'.", name.lexeme);
-                    Err(RuntimeError::new(name, message))
+                    Err(RuntimeError::new(name.clone(), message))
                 }
                 Some(enclosing) => enclosing.borrow_mut().assign(name, value),
             }

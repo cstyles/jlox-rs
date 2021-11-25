@@ -18,59 +18,56 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         let i: Self = Default::default();
-        i.globals.borrow_mut().define(
-            "clock".into(),
-            Rc::new(Object::Callable(Box::new(Clock {}))),
-        );
+        i.globals
+            .borrow_mut()
+            .define("clock", Rc::new(Object::Callable(Box::new(Clock {}))));
 
         i
     }
 
-    pub fn evaluate(&mut self, expr: Expr) -> Result<Rc<Object>, RuntimeError> {
+    pub fn evaluate(&mut self, expr: &Expr) -> Result<Rc<Object>, RuntimeError> {
         match expr {
-            Expr::Logical(left, operator, right) => self.evaluate_logical(*left, operator, *right),
-            Expr::Binary(left, operator, right) => self.evaluate_binary(*left, operator, *right),
-            Expr::Grouping(expr) => self.evaluate(*expr),
+            Expr::Logical(left, operator, right) => self.evaluate_logical(left, operator, right),
+            Expr::Binary(left, operator, right) => self.evaluate_binary(left, operator, right),
+            Expr::Grouping(expr) => self.evaluate(expr),
             Expr::Literal(lit) => Ok(Rc::new(Object::from(lit))),
-            Expr::Unary(operator, expr) => self.evaluate_unary(operator, *expr),
+            Expr::Unary(operator, expr) => self.evaluate_unary(operator, expr),
             Expr::Variable(name) => self
                 .environment
                 .borrow()
-                .get(&name)
-                .or_else(|_err| self.globals.borrow().get(&name)),
+                .get(name)
+                .or_else(|_err| self.globals.borrow().get(name)),
             Expr::Assign(name, expr) => {
-                let value = self.evaluate(*expr)?;
+                let value = self.evaluate(expr)?;
                 self.environment.borrow_mut().assign(name, value.clone())?;
                 Ok(value)
             }
-            Expr::Call(callee, paren, args) => self.evaluate_call(*callee, paren, args),
+            Expr::Call(callee, paren, args) => self.evaluate_call(callee, paren, args),
         }
     }
 
     fn evaluate_call(
         &mut self,
-        callee: Expr,
-        paren: Token,
-        arguments: Vec<Expr>,
+        callee: &Expr,
+        paren: &Token,
+        arguments: &[Expr],
     ) -> Result<Rc<Object>, RuntimeError> {
         let callee = self.evaluate(callee)?;
 
-        let arguments: Result<Vec<Rc<Object>>, RuntimeError> = arguments
-            .into_iter()
-            .map(|arg| self.evaluate(arg))
-            .collect();
+        let arguments: Result<Vec<Rc<Object>>, RuntimeError> =
+            arguments.iter().map(|arg| self.evaluate(arg)).collect();
         let arguments = arguments?;
 
         match callee.deref() {
             Object::Callable(fun) => fun.call(self, paren, arguments),
             _ => Err(RuntimeError::new(
-                paren,
+                paren.clone(),
                 format!("'{}' is not callable", callee),
             )),
         }
     }
 
-    pub fn evaluate_stmt(&mut self, stmt: Stmt) -> Result<(), Control> {
+    pub fn evaluate_stmt(&mut self, stmt: &Stmt) -> Result<(), Control> {
         match stmt {
             Stmt::Expression(expr) => {
                 self.evaluate(expr)?;
@@ -78,8 +75,8 @@ impl Interpreter {
             }
             Stmt::If(expr, then_branch, else_branch) => {
                 if self.evaluate(expr)?.is_truthy() {
-                    self.evaluate_stmt(*then_branch)?;
-                } else if let Some(else_branch) = *else_branch {
+                    self.evaluate_stmt(&**then_branch)?;
+                } else if let Some(else_branch) = &**else_branch {
                     self.evaluate_stmt(else_branch)?;
                 }
 
@@ -108,9 +105,8 @@ impl Interpreter {
                 self.execute_block(statements, environment)
             }
             Stmt::While(condition, body) => {
-                let body = *body;
-                while self.evaluate(condition.clone())?.is_truthy() {
-                    self.evaluate_stmt(body.clone())?;
+                while self.evaluate(condition)?.is_truthy() {
+                    self.evaluate_stmt(body)?;
                 }
 
                 Ok(())
@@ -119,7 +115,7 @@ impl Interpreter {
                 let function =
                     LoxFunction::new(name.lexeme.clone(), params, body, self.environment.clone());
                 let object = Rc::new(Object::Callable(Box::new(function)));
-                self.globals.borrow_mut().define(name.lexeme, object);
+                self.globals.borrow_mut().define(&name.lexeme, object);
                 Ok(())
             }
             Stmt::Return(_keyword, None) => Err(Control::Return(Rc::new(Object::Nil))),
@@ -129,7 +125,7 @@ impl Interpreter {
 
     pub fn execute_block(
         &mut self,
-        statements: Vec<Stmt>,
+        statements: &[Stmt],
         environment: Environment,
     ) -> Result<(), Control> {
         let previous = self.environment.clone();
@@ -147,7 +143,11 @@ impl Interpreter {
         Ok(())
     }
 
-    fn evaluate_unary(&mut self, operator: Token, right: Expr) -> Result<Rc<Object>, RuntimeError> {
+    fn evaluate_unary(
+        &mut self,
+        operator: &Token,
+        right: &Expr,
+    ) -> Result<Rc<Object>, RuntimeError> {
         let right = self.evaluate(right)?;
 
         match (operator.token_type, &right) {
@@ -159,9 +159,9 @@ impl Interpreter {
 
     fn evaluate_logical(
         &mut self,
-        left: Expr,
-        operator: Token,
-        right: Expr,
+        left: &Expr,
+        operator: &Token,
+        right: &Expr,
     ) -> Result<Rc<Object>, RuntimeError> {
         let left = self.evaluate(left)?;
 
@@ -178,9 +178,9 @@ impl Interpreter {
 
     fn evaluate_binary(
         &mut self,
-        left: Expr,
-        operator: Token,
-        right: Expr,
+        left: &Expr,
+        operator: &Token,
+        right: &Expr,
     ) -> Result<Rc<Object>, RuntimeError> {
         let left = self.evaluate(left)?;
         let right = self.evaluate(right)?;
@@ -260,15 +260,15 @@ impl Display for RuntimeError {
 // impl std::error::Error for Control {}
 
 trait Contextable: Sized {
-    fn context(self, operator: Token, message: impl ToString) -> Result<Rc<Object>, RuntimeError>;
+    fn context(self, operator: &Token, message: impl ToString) -> Result<Rc<Object>, RuntimeError>;
 
-    fn assert_numbers(self, operator: Token) -> Result<Rc<Object>, RuntimeError> {
+    fn assert_numbers(self, operator: &Token) -> Result<Rc<Object>, RuntimeError> {
         self.context(operator, "Operands must be numbers.")
     }
 }
 
 impl Contextable for Option<Rc<Object>> {
-    fn context(self, operator: Token, message: impl ToString) -> Result<Rc<Object>, RuntimeError> {
-        self.ok_or_else(|| RuntimeError::new(operator, message))
+    fn context(self, operator: &Token, message: impl ToString) -> Result<Rc<Object>, RuntimeError> {
+        self.ok_or_else(|| RuntimeError::new(operator.clone(), message))
     }
 }

@@ -13,7 +13,7 @@ pub trait Callable {
     fn call(
         &self,
         interpreter: &mut Interpreter,
-        paren: Token,
+        paren: &Token,
         arguments: Vec<Rc<Object>>,
     ) -> Result<Rc<Object>, RuntimeError>;
 
@@ -21,14 +21,14 @@ pub trait Callable {
 
     fn name(&self) -> &str;
 
-    fn check_arity(&self, paren: Token, arguments: &[Rc<Object>]) -> Result<(), RuntimeError> {
+    fn check_arity(&self, paren: &Token, arguments: &[Rc<Object>]) -> Result<(), RuntimeError> {
         if arguments.len() != self.arity() {
             let message = format!(
                 "Expected {} arguments but got {}.",
                 self.arity(),
                 arguments.len()
             );
-            return Err(RuntimeError::new(paren, message));
+            return Err(RuntimeError::new(paren.clone(), message));
         }
 
         Ok(())
@@ -47,12 +47,12 @@ impl Callable for Clock {
     fn call(
         &self,
         _interpreter: &mut Interpreter,
-        paren: Token,
+        paren: &Token,
         _arguments: Vec<Rc<Object>>,
     ) -> Result<Rc<Object>, RuntimeError> {
         match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
             Ok(duration) => Ok(Rc::new(Object::from(duration.as_secs() as f64))),
-            Err(_) => Err(RuntimeError::new(paren, String::from("clock failed!"))),
+            Err(err) => Err(RuntimeError::new(paren.clone(), err.to_string())),
         }
     }
 
@@ -75,10 +75,13 @@ pub struct LoxFunction {
 impl LoxFunction {
     pub fn new(
         name: String,
-        parameters: Vec<Token>,
-        body: Vec<Stmt>,
+        parameters: &[Token],
+        body: &[Stmt],
         closure: Rc<RefCell<Environment>>,
     ) -> Self {
+        let parameters = parameters.to_vec();
+        let body = body.to_vec();
+
         Self {
             name,
             parameters,
@@ -92,7 +95,7 @@ impl Callable for LoxFunction {
     fn call(
         &self,
         interpreter: &mut Interpreter,
-        paren: Token,
+        paren: &Token,
         arguments: Vec<Rc<Object>>,
     ) -> Result<Rc<Object>, RuntimeError> {
         self.check_arity(paren, &arguments)?;
@@ -100,10 +103,10 @@ impl Callable for LoxFunction {
         let mut environment = Environment::from_enclosing(self.closure.clone());
 
         for (param, arg) in self.parameters.iter().zip(arguments) {
-            environment.define(param.lexeme.clone(), arg);
+            environment.define(&param.lexeme, arg);
         }
 
-        match interpreter.execute_block(self.body.clone(), environment) {
+        match interpreter.execute_block(&self.body, environment) {
             Ok(()) => Ok(Rc::new(Object::Nil)),
             Err(Control::Return(value)) => Ok(value),
             Err(Control::Error(err)) => Err(err),
