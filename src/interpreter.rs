@@ -1,8 +1,9 @@
 use std::cell::RefCell;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::ops::{Deref, Not};
 use std::rc::Rc;
 
+use crate::callable::{Clock, LoxFunction};
 use crate::environment::Environment;
 use crate::object::Object;
 use crate::parser::{Expr, Stmt};
@@ -11,11 +12,18 @@ use crate::token::{Token, TokenType};
 #[derive(Default)]
 pub struct Interpreter {
     environment: Rc<RefCell<Environment>>,
+    globals: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        Default::default()
+        let i: Self = Default::default();
+        i.globals.borrow_mut().define(
+            "clock".into(),
+            Rc::new(Object::Callable(Box::new(Clock {}))),
+        );
+
+        i
     }
 
     pub fn evaluate(&mut self, expr: Expr) -> Result<Rc<Object>, RuntimeError> {
@@ -25,16 +33,44 @@ impl Interpreter {
             Expr::Grouping(expr) => self.evaluate(*expr),
             Expr::Literal(lit) => Ok(Rc::new(Object::from(lit))),
             Expr::Unary(operator, expr) => self.evaluate_unary(operator, *expr),
-            Expr::Variable(name) => self.environment.borrow().get(name),
+            Expr::Variable(name) => self
+                .environment
+                .borrow()
+                .get(&name)
+                .or_else(|_err| self.globals.borrow().get(&name)),
             Expr::Assign(name, expr) => {
                 let value = self.evaluate(*expr)?;
                 self.environment.borrow_mut().assign(name, value.clone())?;
                 Ok(value)
             }
+            Expr::Call(callee, paren, args) => self.evaluate_call(*callee, paren, args),
         }
     }
 
-    pub fn evaluate_stmt(&mut self, stmt: Stmt) -> Result<(), RuntimeError> {
+    fn evaluate_call(
+        &mut self,
+        callee: Expr,
+        paren: Token,
+        arguments: Vec<Expr>,
+    ) -> Result<Rc<Object>, RuntimeError> {
+        let callee = self.evaluate(callee)?;
+
+        let arguments: Result<Vec<Rc<Object>>, RuntimeError> = arguments
+            .into_iter()
+            .map(|arg| self.evaluate(arg))
+            .collect();
+        let arguments = arguments?;
+
+        match callee.deref() {
+            Object::Callable(fun) => fun.call(self, paren, arguments),
+            _ => Err(RuntimeError::new(
+                paren,
+                format!("'{}' is not callable", callee),
+            )),
+        }
+    }
+
+    pub fn evaluate_stmt(&mut self, stmt: Stmt) -> Result<(), Control> {
         match stmt {
             Stmt::Expression(expr) => {
                 self.evaluate(expr)?;
@@ -61,7 +97,9 @@ impl Interpreter {
                     Ok(())
                 }
                 None => {
-                    self.environment.borrow_mut().define(name, Rc::new(Object::Nil));
+                    self.environment
+                        .borrow_mut()
+                        .define(name, Rc::new(Object::Nil));
                     Ok(())
                 }
             },
@@ -77,18 +115,31 @@ impl Interpreter {
 
                 Ok(())
             }
+            Stmt::Function(name, params, body) => {
+                let function =
+                    LoxFunction::new(name.lexeme.clone(), params, body, self.environment.clone());
+                let object = Rc::new(Object::Callable(Box::new(function)));
+                self.globals.borrow_mut().define(name.lexeme, object);
+                Ok(())
+            }
+            Stmt::Return(_keyword, None) => Err(Control::Return(Rc::new(Object::Nil))),
+            Stmt::Return(_keyword, Some(expr)) => Err(Control::Return(self.evaluate(expr)?)),
         }
     }
 
-    fn execute_block(
+    pub fn execute_block(
         &mut self,
         statements: Vec<Stmt>,
         environment: Environment,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<(), Control> {
         let previous = self.environment.clone();
         self.environment = Rc::new(RefCell::new(environment));
+
         for statement in statements {
-            self.evaluate_stmt(statement)?;
+            if let Err(err) = self.evaluate_stmt(statement) {
+                self.environment = previous;
+                return Err(err);
+            }
         }
 
         self.environment = previous;
@@ -164,6 +215,29 @@ impl Interpreter {
 }
 
 #[derive(Debug)]
+pub enum Control {
+    Return(Rc<Object>),
+    Error(RuntimeError),
+}
+
+impl Display for Control {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Control::Return(value) => Display::fmt(value, f),
+            Control::Error(err) => Display::fmt(err, f),
+        }
+    }
+}
+
+impl std::error::Error for Control {}
+
+impl From<RuntimeError> for Control {
+    fn from(err: RuntimeError) -> Self {
+        Control::Error(err)
+    }
+}
+
+#[derive(Debug)]
 pub struct RuntimeError {
     operator: Token,
     message: String,
@@ -183,7 +257,7 @@ impl Display for RuntimeError {
     }
 }
 
-impl std::error::Error for RuntimeError {}
+// impl std::error::Error for Control {}
 
 trait Contextable: Sized {
     fn context(self, operator: Token, message: impl ToString) -> Result<Rc<Object>, RuntimeError>;

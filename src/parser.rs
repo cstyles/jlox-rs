@@ -13,6 +13,11 @@ pub enum Expr {
         Token,     // operator
         Box<Expr>, // right
     ),
+    Call(
+        Box<Expr>, // callee
+        Token,     // closing parenthesis
+        Vec<Expr>, // arguments
+    ),
     Grouping(Box<Expr>),
     Literal(token::Literal),
     Unary(
@@ -37,6 +42,7 @@ impl Display for Expr {
             Expr::Unary(operator, right) => write!(f, "({} {})", operator.lexeme, right),
             Expr::Variable(name) => write!(f, "{}", name),
             Expr::Assign(name, expr) => write!(f, "{} = {}", name, expr),
+            Expr::Call(callee, _paren, args) => write!(f, "{}({:?})", callee, args),
         }
     }
 }
@@ -60,6 +66,10 @@ impl Expr {
 
     fn assign(name: Token, expr: Self) -> Self {
         Self::Assign(name, Box::new(expr))
+    }
+
+    fn call(callee: Expr, paren: Token, arguments: Vec<Expr>) -> Self {
+        Self::Call(Box::new(callee), paren, arguments)
     }
 }
 
@@ -85,7 +95,16 @@ pub enum Stmt {
         Box<Option<Stmt>>, // else branch
     ),
     Expression(Expr),
+    Function(
+        Token,      // name
+        Vec<Token>, // parameters
+        Vec<Stmt>,  // body
+    ),
     Print(Expr),
+    Return(
+        Token,        // keyword
+        Option<Expr>, // return valuue
+    ),
     Var(String, Option<Expr>),
     While(
         Expr,      // condition
@@ -124,6 +143,8 @@ impl Parser {
             self.if_statement()
         } else if self.match_(&[TokenType::Print]) {
             self.print_statement()
+        } else if self.match_(&[TokenType::Return]) {
+            self.return_statement()
         } else if self.match_(&[TokenType::While]) {
             self.while_statement()
         } else if self.match_(&[TokenType::LeftBrace]) {
@@ -206,7 +227,9 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Result<Stmt, ParseError> {
-        if self.match_(&[TokenType::Var]) {
+        if self.match_(&[TokenType::Fun]) {
+            self.function("function")
+        } else if self.match_(&[TokenType::Var]) {
             self.var_declaration()
         } else {
             self.statement()
@@ -215,6 +238,40 @@ impl Parser {
             self._synchronize();
             err
         })
+    }
+
+    // TODO: convert `kind` into an enum
+    fn function(&mut self, kind: &str) -> Result<Stmt, ParseError> {
+        let name = self.consume(TokenType::Identifier, &format!("Expect {} name.", kind))?;
+        self.consume(
+            TokenType::LeftParen,
+            &format!("Expect '(' after {} name.", kind),
+        )?;
+
+        let mut parameters = vec![];
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    print_error(self.peek(), "Can't have more than 255 parameters.");
+                }
+
+                parameters.push(self.consume(TokenType::Identifier, "Expect parameter name.")?);
+
+                if !self.match_(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightParen, "Expect ')' after parameters.")?;
+
+        self.consume(
+            TokenType::LeftBrace,
+            &format!("Expect '{{' before {} body.", kind),
+        )?;
+        let body = self.block()?;
+
+        Ok(Stmt::Function(name, parameters, body))
     }
 
     fn var_declaration(&mut self) -> Result<Stmt, ParseError> {
@@ -246,7 +303,7 @@ impl Parser {
             if let Expr::Variable(name) = expr {
                 return Ok(Expr::assign(name, value));
             } else {
-                eprintln!("Invalid assignment target: {}", expr);
+                eprintln!("Invalid assignment target: {}", expr); // TODO
             }
         }
 
@@ -307,6 +364,19 @@ impl Parser {
         let expr = self.expression()?;
         self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
         Ok(Stmt::Print(expr))
+    }
+
+    fn return_statement(&mut self) -> Result<Stmt, ParseError> {
+        let keyword = self.previous();
+
+        let value = if self.check(TokenType::Semicolon) {
+            None
+        } else {
+            Some(self.expression()?)
+        };
+
+        self.consume(TokenType::Semicolon, "Expect ';' after return value.")?;
+        Ok(Stmt::Return(keyword, value))
     }
 
     fn while_statement(&mut self) -> Result<Stmt, ParseError> {
@@ -406,8 +476,44 @@ impl Parser {
 
             Ok(Expr::unary(operator, right))
         } else {
-            self.primary()
+            self.call()
         }
+    }
+
+    fn call(&mut self) -> Result<Expr, ParseError> {
+        let mut expr = self.primary()?;
+
+        loop {
+            if self.match_(&[TokenType::LeftParen]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, something: Expr) -> Result<Expr, ParseError> {
+        let mut arguments = vec![];
+
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if arguments.len() >= 255 {
+                    print_error(self.peek(), "Can't have more than 255 arguments.");
+                }
+
+                arguments.push(self.expression()?);
+
+                if !self.match_(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        let paren = self.consume(TokenType::RightParen, "Expect ')' after arguments.")?;
+
+        Ok(Expr::call(something, paren, arguments))
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {

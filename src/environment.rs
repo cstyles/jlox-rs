@@ -29,12 +29,12 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: Token) -> Result<Rc<Object>, RuntimeError> {
+    pub fn get(&self, name: &Token) -> Result<Rc<Object>, RuntimeError> {
         match self.values.get(&name.lexeme) {
             None => match &self.enclosing {
                 None => {
                     let message = format!("Undefined variable: '{}'.", name.lexeme);
-                    Err(RuntimeError::new(name, message))
+                    Err(RuntimeError::new(name.clone(), message))
                 }
                 Some(enclosing) => enclosing.borrow().get(name),
             },

@@ -1,8 +1,9 @@
 use std::cmp::PartialOrd;
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 use std::rc::Rc;
 
+use crate::callable::Callable;
 use crate::token::Literal;
 
 #[derive(Debug)]
@@ -11,6 +12,7 @@ pub enum Object {
     Boolean(bool),
     Number(f64),
     String(String),
+    Callable(Box<dyn Callable>),
 }
 
 impl From<Literal> for Object {
@@ -161,6 +163,7 @@ impl Display for Object {
             Object::Boolean(b) => write!(f, "{}", b),
             Object::Number(num) => write!(f, "{}", num),
             Object::String(string) => write!(f, "{}", string),
+            Object::Callable(fun) => Debug::fmt(fun, f),
         }
     }
 }
