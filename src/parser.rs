@@ -228,7 +228,7 @@ impl Parser {
 
     fn declaration(&mut self) -> Result<Stmt, ParseError> {
         if self.match_(&[TokenType::Fun]) {
-            self.function("function")
+            self.function(FunctionKind::Function)
         } else if self.match_(&[TokenType::Var]) {
             self.var_declaration()
         } else {
@@ -240,8 +240,7 @@ impl Parser {
         })
     }
 
-    // TODO: convert `kind` into an enum
-    fn function(&mut self, kind: &str) -> Result<Stmt, ParseError> {
+    fn function(&mut self, kind: FunctionKind) -> Result<Stmt, ParseError> {
         let name = self.consume(TokenType::Identifier, &format!("Expect {} name.", kind))?;
         self.consume(
             TokenType::LeftParen,
@@ -584,6 +583,26 @@ impl Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
+
+#[derive(Debug)]
+enum FunctionKind {
+    Function,
+    #[allow(unused)]
+    Method,
+}
+
+impl Display for FunctionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                FunctionKind::Function => "function",
+                FunctionKind::Method => "method",
+            }
+        )
+    }
+}
 
 fn print_error(token: Token, message: &str) {
     if token.token_type == TokenType::Eof {
