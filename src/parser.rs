@@ -297,13 +297,13 @@ impl Parser {
         let expr = self.or()?;
 
         if self.match_(&[TokenType::Equal]) {
-            let _equals = self.previous();
+            let equals = self.previous();
             let value = self.assignment()?;
 
             if let Expr::Variable(name) = expr {
                 return Ok(Expr::assign(name, value));
             } else {
-                eprintln!("Invalid assignment target: {}", expr); // TODO
+                print_error(equals, &format!("Invalid assignment target: {}", expr));
             }
         }
 
