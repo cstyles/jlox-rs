@@ -7,9 +7,9 @@ use crate::interpreter::RuntimeError;
 use crate::object::Object;
 use crate::token::Token;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug)]
 pub struct Environment {
-    values: HashMap<String, Object>,
+    values: HashMap<String, Rc<Object>>,
     pub enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
@@ -25,12 +25,12 @@ impl Environment {
         }
     }
 
-    pub fn define(&mut self, name: String, value: Object) {
+    pub fn define(&mut self, name: String, value: Rc<Object>) {
         self.values.insert(name, value);
     }
 
-    pub fn get(&self, name: Token) -> Result<Object, RuntimeError> {
-        match self.values.get(&name.lexeme).cloned() {
+    pub fn get(&self, name: Token) -> Result<Rc<Object>, RuntimeError> {
+        match self.values.get(&name.lexeme) {
             None => match &self.enclosing {
                 None => {
                     let message = format!("Undefined variable: '{}'.", name.lexeme);
@@ -38,11 +38,11 @@ impl Environment {
                 }
                 Some(enclosing) => enclosing.borrow().get(name),
             },
-            Some(result) => Ok(result),
+            Some(result) => Ok(result.clone()),
         }
     }
 
-    pub fn assign(&mut self, name: Token, value: Object) -> Result<(), RuntimeError> {
+    pub fn assign(&mut self, name: Token, value: Rc<Object>) -> Result<(), RuntimeError> {
         if let Entry::Occupied(mut e) = self.values.entry(name.lexeme.clone()) {
             e.insert(value);
             Ok(())

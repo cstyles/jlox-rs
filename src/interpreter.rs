@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::fmt::Display;
-use std::ops::Not;
+use std::ops::{Deref, Not};
 use std::rc::Rc;
 
 use crate::environment::Environment;
@@ -18,12 +18,12 @@ impl Interpreter {
         Default::default()
     }
 
-    pub fn evaluate(&mut self, expr: Expr) -> Result<Object, RuntimeError> {
+    pub fn evaluate(&mut self, expr: Expr) -> Result<Rc<Object>, RuntimeError> {
         match expr {
             Expr::Logical(left, operator, right) => self.evaluate_logical(*left, operator, *right),
             Expr::Binary(left, operator, right) => self.evaluate_binary(*left, operator, *right),
             Expr::Grouping(expr) => self.evaluate(*expr),
-            Expr::Literal(lit) => Ok(Object::from(lit)),
+            Expr::Literal(lit) => Ok(Rc::new(Object::from(lit))),
             Expr::Unary(operator, expr) => self.evaluate_unary(operator, *expr),
             Expr::Variable(name) => self.environment.borrow().get(name),
             Expr::Assign(name, expr) => {
@@ -61,7 +61,7 @@ impl Interpreter {
                     Ok(())
                 }
                 None => {
-                    self.environment.borrow_mut().define(name, Object::Nil);
+                    self.environment.borrow_mut().define(name, Rc::new(Object::Nil));
                     Ok(())
                 }
             },
@@ -96,12 +96,12 @@ impl Interpreter {
         Ok(())
     }
 
-    fn evaluate_unary(&mut self, operator: Token, right: Expr) -> Result<Object, RuntimeError> {
+    fn evaluate_unary(&mut self, operator: Token, right: Expr) -> Result<Rc<Object>, RuntimeError> {
         let right = self.evaluate(right)?;
 
         match (operator.token_type, &right) {
-            (TokenType::Minus, _) => (-right).context(operator, "Operand must be a number"),
-            (TokenType::Bang, _) => Ok(!right),
+            (TokenType::Minus, _) => (-right.deref()).context(operator, "Operand must be a number"),
+            (TokenType::Bang, _) => Ok(!right.deref()),
             _ => unreachable!("unary expression with bad operator: {}", operator),
         }
     }
@@ -111,7 +111,7 @@ impl Interpreter {
         left: Expr,
         operator: Token,
         right: Expr,
-    ) -> Result<Object, RuntimeError> {
+    ) -> Result<Rc<Object>, RuntimeError> {
         let left = self.evaluate(left)?;
 
         if operator.token_type == TokenType::And {
@@ -130,35 +130,34 @@ impl Interpreter {
         left: Expr,
         operator: Token,
         right: Expr,
-    ) -> Result<Object, RuntimeError> {
+    ) -> Result<Rc<Object>, RuntimeError> {
         let left = self.evaluate(left)?;
         let right = self.evaluate(right)?;
 
         match operator.token_type {
-            TokenType::Minus => (left - right).assert_numbers(operator),
-            TokenType::Slash => (left / right).assert_numbers(operator),
-            TokenType::Star => (left * right).assert_numbers(operator),
-            TokenType::Plus => {
-                (left + right).context(operator, "Operands must be two numbers or two strings.")
-            }
+            TokenType::Minus => (left.deref() - &right).assert_numbers(operator),
+            TokenType::Slash => (left.deref() / &right).assert_numbers(operator),
+            TokenType::Star => (left.deref() * &right).assert_numbers(operator),
+            TokenType::Plus => (left.deref() + &right)
+                .context(operator, "Operands must be two numbers or two strings."),
             TokenType::Greater => left
                 .partial_cmp(&right)
-                .map(|o| o.is_gt().into())
+                .map(|o| Rc::new(o.is_gt().into()))
                 .assert_numbers(operator),
             TokenType::GreaterEqual => left
                 .partial_cmp(&right)
-                .map(|o| o.is_ge().into())
+                .map(|o| Rc::new(o.is_ge().into()))
                 .assert_numbers(operator),
             TokenType::Less => left
                 .partial_cmp(&right)
-                .map(|o| o.is_lt().into())
+                .map(|o| Rc::new(o.is_lt().into()))
                 .assert_numbers(operator),
             TokenType::LessEqual => left
                 .partial_cmp(&right)
-                .map(|o| o.is_le().into())
+                .map(|o| Rc::new(o.is_le().into()))
                 .assert_numbers(operator),
-            TokenType::BangEqual => Ok(left.eq(&right).not().into()),
-            TokenType::EqualEqual => Ok(left.eq(&right).into()),
+            TokenType::BangEqual => Ok(Rc::new((*left).eq(&right).not().into())),
+            TokenType::EqualEqual => Ok(Rc::new((*left).eq(&right).into())),
             _ => unreachable!("not possible operands: {:?}, {:?}", left, right),
         }
     }
@@ -187,15 +186,15 @@ impl Display for RuntimeError {
 impl std::error::Error for RuntimeError {}
 
 trait Contextable: Sized {
-    fn context(self, operator: Token, message: impl ToString) -> Result<Object, RuntimeError>;
+    fn context(self, operator: Token, message: impl ToString) -> Result<Rc<Object>, RuntimeError>;
 
-    fn assert_numbers(self, operator: Token) -> Result<Object, RuntimeError> {
+    fn assert_numbers(self, operator: Token) -> Result<Rc<Object>, RuntimeError> {
         self.context(operator, "Operands must be numbers.")
     }
 }
 
-impl Contextable for Option<Object> {
-    fn context(self, operator: Token, message: impl ToString) -> Result<Object, RuntimeError> {
+impl Contextable for Option<Rc<Object>> {
+    fn context(self, operator: Token, message: impl ToString) -> Result<Rc<Object>, RuntimeError> {
         self.ok_or_else(|| RuntimeError::new(operator, message))
     }
 }

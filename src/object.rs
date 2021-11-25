@@ -1,10 +1,11 @@
 use std::cmp::PartialOrd;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
+use std::rc::Rc;
 
 use crate::token::Literal;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub enum Object {
     Nil,
     Boolean(bool),
@@ -53,64 +54,68 @@ impl Object {
     }
 }
 
-impl Add<Object> for Object {
-    type Output = Option<Object>;
+impl Add<&Object> for &Object {
+    type Output = Option<Rc<Object>>;
 
-    fn add(self, right: Object) -> Self::Output {
+    fn add(self, right: &Object) -> Self::Output {
         match (self, right) {
-            (Object::Number(left), Object::Number(right)) => Some(Object::Number(left + right)),
-            (Object::String(left), Object::String(right)) => Some(Object::String(left + &right)),
+            (Object::Number(left), Object::Number(right)) => {
+                Some(Rc::new(Object::Number(left + right)))
+            }
+            (Object::String(left), Object::String(right)) => {
+                Some(Rc::new(Object::String(left.to_string() + right)))
+            }
             _ => None,
         }
     }
 }
 
-impl Sub<Object> for Object {
-    type Output = Option<Object>;
+impl Sub<&Object> for &Object {
+    type Output = Option<Rc<Object>>;
 
-    fn sub(self, right: Object) -> Self::Output {
+    fn sub(self, right: &Object) -> Self::Output {
         (self, right)
             .as_numbers()
-            .map(|(left, right)| Object::Number(left - right))
+            .map(|(left, right)| Rc::new(Object::Number(left - right)))
     }
 }
 
-impl Mul<Object> for Object {
-    type Output = Option<Object>;
+impl Mul<&Object> for &Object {
+    type Output = Option<Rc<Object>>;
 
-    fn mul(self, right: Object) -> Self::Output {
+    fn mul(self, right: &Object) -> Self::Output {
         (self, right)
             .as_numbers()
-            .map(|(left, right)| Object::Number(left * right))
+            .map(|(left, right)| Rc::new(Object::Number(left * right)))
     }
 }
 
-impl Div<Object> for Object {
-    type Output = Option<Object>;
+impl Div<&Object> for &Object {
+    type Output = Option<Rc<Object>>;
 
-    fn div(self, right: Object) -> Self::Output {
+    fn div(self, right: &Object) -> Self::Output {
         (self, right)
             .as_numbers()
-            .map(|(left, right)| Object::Number(left / right))
+            .map(|(left, right)| Rc::new(Object::Number(left / right)))
     }
 }
 
-impl Neg for Object {
-    type Output = Option<Self>;
+impl Neg for &Object {
+    type Output = Option<Rc<Object>>;
 
     fn neg(self) -> Self::Output {
-        match self {
-            Self::Number(number) => Some(Self::Number(-number)),
+        match *self {
+            Object::Number(number) => Some(Rc::new(Object::Number(-number))),
             _ => None,
         }
     }
 }
 
-impl Not for Object {
-    type Output = Self;
+impl Not for &Object {
+    type Output = Rc<Object>;
 
     fn not(self) -> Self::Output {
-        Self::Boolean(!self.is_truthy())
+        Rc::new(Object::Boolean(!self.is_truthy()))
     }
 }
 
@@ -128,10 +133,10 @@ trait AsNumbers {
     fn as_numbers(&self) -> Option<(f64, f64)>;
 }
 
-impl AsNumbers for (Object, Object) {
+impl AsNumbers for (&Object, &Object) {
     fn as_numbers(&self) -> Option<(f64, f64)> {
         match *self {
-            (Object::Number(left), Object::Number(right)) => Some((left, right)),
+            (Object::Number(left), Object::Number(right)) => Some((*left, *right)),
             _ => None,
         }
     }
