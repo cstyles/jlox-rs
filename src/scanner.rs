@@ -135,12 +135,13 @@ impl Scanner {
 
     fn add_token_with_literal(&mut self, token_type: TokenType, literal: Literal) {
         let text = &self.source[self.start..self.current];
-        let token = Token {
+        let token = Token::new(
             token_type,
-            lexeme: text.iter().collect(),
+            text.iter().collect(),
             literal,
-            line: self.line_number,
-        };
+            self.line_number,
+            self.start,
+        );
         self.tokens.push(token);
     }
 

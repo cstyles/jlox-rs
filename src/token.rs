@@ -8,15 +8,23 @@ pub struct Token {
     pub(crate) lexeme: String,
     pub(crate) literal: Literal,
     pub(crate) line: usize,
+    column: usize,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, literal: Literal, line: usize) -> Self {
+    pub fn new(
+        token_type: TokenType,
+        lexeme: String,
+        literal: Literal,
+        line: usize,
+        column: usize,
+    ) -> Self {
         Self {
             token_type,
             lexeme,
             literal,
             line,
+            column,
         }
     }
 }

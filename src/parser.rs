@@ -76,10 +76,10 @@ impl Expr {
 fn _test_pretty_print() {
     let expr = Expr::binary(
         Expr::unary(
-            Token::new(TokenType::Minus, "-".into(), token::Literal::None, 1),
+            Token::new(TokenType::Minus, "-".into(), token::Literal::None, 1, 0),
             Expr::Literal(token::Literal::Number(123.0.into())),
         ),
-        Token::new(TokenType::Star, "*".into(), token::Literal::None, 1),
+        Token::new(TokenType::Star, "*".into(), token::Literal::None, 1, 0),
         Expr::grouping(Expr::Literal(token::Literal::Number(45.67.into()))),
     );
 
