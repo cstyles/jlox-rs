@@ -74,8 +74,8 @@ impl Interpreter {
             }
             Stmt::If(expr, then_branch, else_branch) => {
                 if self.evaluate(expr)?.is_truthy() {
-                    self.evaluate_stmt(&**then_branch)?;
-                } else if let Some(else_branch) = &**else_branch {
+                    self.evaluate_stmt(then_branch)?;
+                } else if let Some(else_branch) = else_branch.as_ref() {
                     self.evaluate_stmt(else_branch)?;
                 }
 
