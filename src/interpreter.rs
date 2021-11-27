@@ -114,7 +114,7 @@ impl Interpreter {
                 let function =
                     LoxFunction::new(name.lexeme.clone(), params, body, self.environment.clone());
                 let object = Rc::new(Object::Callable(Box::new(function)));
-                self.globals.borrow_mut().define(&name.lexeme, object);
+                self.environment.borrow_mut().define(&name.lexeme, object);
                 Ok(())
             }
             Stmt::Return(_keyword, None) => Err(Control::Return(Rc::new(Object::Nil))),
