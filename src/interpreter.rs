@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::ops::{Deref, Not};
 use std::rc::Rc;
@@ -13,6 +14,7 @@ use crate::token::{Token, TokenType};
 pub struct Interpreter {
     environment: Rc<RefCell<Environment>>,
     globals: Rc<RefCell<Environment>>,
+    locals: HashMap<Expr, usize>,
 }
 
 impl Interpreter {
@@ -32,16 +34,8 @@ impl Interpreter {
             Expr::Grouping(expr) => self.evaluate(expr),
             Expr::Literal(lit) => Ok(Rc::new(Object::from(lit))),
             Expr::Unary(operator, expr) => self.evaluate_unary(operator, expr),
-            Expr::Variable(name) => self
-                .environment
-                .borrow()
-                .get(name)
-                .or_else(|_err| self.globals.borrow().get(name)),
-            Expr::Assign(name, expr) => {
-                let value = self.evaluate(expr)?;
-                self.environment.borrow_mut().assign(name, value.clone())?;
-                Ok(value)
-            }
+            Expr::Variable(name) => self.lookup_variable(name, expr),
+            Expr::Assign(name, expr) => self.assign_variable(name, expr),
             Expr::Call(callee, paren, args) => self.evaluate_call(callee, paren, args),
         }
     }
@@ -211,6 +205,30 @@ impl Interpreter {
             TokenType::EqualEqual => Ok(Rc::new((*left).eq(&right).into())),
             _ => unreachable!("not possible operands: {:?}, {:?}", left, right),
         }
+    }
+
+    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
+        self.locals.insert(expr.clone(), depth);
+    }
+
+    fn lookup_variable(&self, name: &Token, expr: &Expr) -> Result<Rc<Object>, RuntimeError> {
+        match self.locals.get(expr) {
+            Some(distance) => Environment::get_at(self.environment.clone(), *distance, name),
+            None => self.globals.borrow().get(name),
+        }
+    }
+
+    fn assign_variable(&mut self, name: &Token, expr: &Expr) -> Result<Rc<Object>, RuntimeError> {
+        let value = self.evaluate(expr)?;
+
+        match self.locals.get(expr) {
+            Some(distance) => {
+                Environment::assign_at(self.environment.clone(), *distance, name, value.clone())?
+            }
+            None => self.globals.borrow_mut().assign(name, value.clone())?,
+        };
+
+        Ok(value)
     }
 }
 

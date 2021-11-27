@@ -1,7 +1,7 @@
 use crate::token::{self, Token, TokenType};
 use std::fmt::Display;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Expr {
     Logical(
         Box<Expr>, // left
@@ -105,7 +105,10 @@ pub enum Stmt {
         Token,        // keyword
         Option<Expr>, // return valuue
     ),
-    Var(String, Option<Expr>),
+    Var(
+        String,       // name
+        Option<Expr>, // initializer
+    ),
     While(
         Expr,      // condition
         Box<Stmt>, // body
@@ -585,7 +588,7 @@ impl Display for ParseError {
 impl std::error::Error for ParseError {}
 
 #[derive(Debug)]
-enum FunctionKind {
+pub(crate) enum FunctionKind {
     Function,
     #[allow(unused)]
     Method,

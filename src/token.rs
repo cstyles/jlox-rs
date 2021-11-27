@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use ordered_float::OrderedFloat;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Token {
     pub(crate) token_type: TokenType,
     pub(crate) lexeme: String,
@@ -44,7 +44,7 @@ impl Display for Literal {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Literal {
     None,
     String(String),
@@ -54,8 +54,7 @@ pub enum Literal {
     Nil,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(unused)] // TODO: remove me?
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
