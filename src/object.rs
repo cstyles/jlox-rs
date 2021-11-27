@@ -10,7 +10,7 @@ use crate::token::Literal;
 pub enum Object {
     Nil,
     Boolean(bool),
-    Number(f64),
+    Number(f64), // TODO: OrderedFloat?
     String(String),
     Callable(Box<dyn Callable>),
 }
@@ -20,7 +20,7 @@ impl From<&Literal> for Object {
         match literal {
             Literal::None => Self::Nil,
             Literal::String(string) => Self::String(string.clone()),
-            Literal::Number(num) => Self::Number(*num),
+            Literal::Number(num) => Self::Number(num.into_inner()),
             Literal::False => Self::Boolean(false),
             Literal::True => Self::Boolean(true),
             Literal::Nil => Self::Nil,

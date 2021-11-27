@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use ordered_float::OrderedFloat;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub(crate) token_type: TokenType,
@@ -46,7 +48,7 @@ impl Display for Literal {
 pub enum Literal {
     None,
     String(String),
-    Number(f64),
+    Number(OrderedFloat<f64>),
     False,
     True,
     Nil,

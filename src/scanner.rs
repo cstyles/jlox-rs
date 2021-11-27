@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use ordered_float::OrderedFloat;
+
 use crate::token::{Literal, Token, TokenType};
 
 #[derive(Default)]
@@ -206,7 +208,7 @@ impl Scanner {
 
         // Convert string representation into an f64
         let value: String = self.source[self.start..self.current].iter().collect();
-        let value: f64 = value.parse().expect("must be numeric");
+        let value: OrderedFloat<f64> = value.parse().expect("must be numeric");
         self.add_token_with_literal(TokenType::Number, Literal::Number(value));
     }
 
