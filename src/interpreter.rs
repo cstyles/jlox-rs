@@ -19,10 +19,15 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        let i: Self = Default::default();
+        let mut i: Self = Default::default();
+
+        // Define native function `clock` in the global scope
         i.globals
             .borrow_mut()
             .define("clock", Rc::new(Object::Callable(Box::new(Clock {}))));
+
+        // Alias the initial environment to the globals environment
+        i.environment = i.globals.clone();
 
         i
     }
