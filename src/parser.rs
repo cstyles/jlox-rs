@@ -125,7 +125,7 @@ pub enum Stmt {
         Option<Expr>, // return valuue
     ),
     Var(
-        String,       // name
+        String,       // name TODO: Make this a token
         Option<Expr>, // initializer
     ),
     While(
