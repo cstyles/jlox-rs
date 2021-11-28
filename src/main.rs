@@ -3,6 +3,8 @@ use std::io::{BufRead, Write};
 mod callable;
 mod environment;
 mod interpreter;
+mod lox_class;
+mod lox_instance;
 mod object;
 mod parser;
 mod resolver;

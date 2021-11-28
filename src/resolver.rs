@@ -41,6 +41,11 @@ impl Resolver {
                 }
                 self.end_scope();
             }
+            Stmt::Class(name, _methods) => {
+                self.declare(&name.lexeme);
+                self.define(&name.lexeme);
+                // self.resolve_statements(methods);
+            }
             Stmt::If(condition, then_branch, else_branch) => {
                 self.resolve_expression(condition);
                 self.resolve_statement(then_branch);

@@ -4,6 +4,8 @@ use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 use std::rc::Rc;
 
 use crate::callable::Callable;
+use crate::lox_class::LoxClass;
+use crate::lox_instance::LoxInstance;
 use crate::token::Literal;
 
 #[derive(Debug)]
@@ -13,6 +15,8 @@ pub enum Object {
     Number(f64), // TODO: OrderedFloat?
     String(String),
     Callable(Box<dyn Callable>),
+    Class(LoxClass), // TODO: collapse into Callable?
+    Instance(LoxInstance),
 }
 
 impl From<&Literal> for Object {
@@ -164,6 +168,8 @@ impl Display for Object {
             Object::Number(num) => write!(f, "{}", num),
             Object::String(string) => write!(f, "{}", string),
             Object::Callable(fun) => Debug::fmt(fun, f),
+            Object::Class(class) => write!(f, "{}", class),
+            Object::Instance(instance) => write!(f, "{}", instance),
         }
     }
 }

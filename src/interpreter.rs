@@ -4,8 +4,9 @@ use std::fmt::{Debug, Display};
 use std::ops::{Deref, Not};
 use std::rc::Rc;
 
-use crate::callable::{Clock, LoxFunction};
+use crate::callable::{Callable, Clock, LoxFunction};
 use crate::environment::Environment;
+use crate::lox_class::LoxClass;
 use crate::object::Object;
 use crate::parser::{Expr, Stmt};
 use crate::token::{Token, TokenType};
@@ -59,6 +60,7 @@ impl Interpreter {
 
         match callee.deref() {
             Object::Callable(fun) => fun.call(self, paren, arguments),
+            Object::Class(klass) => klass.call(self, paren, arguments),
             _ => Err(RuntimeError::new(
                 paren.clone(),
                 format!("'{}' is not callable", callee),
@@ -119,6 +121,15 @@ impl Interpreter {
             }
             Stmt::Return(_keyword, None) => Err(Control::Return(Rc::new(Object::Nil))),
             Stmt::Return(_keyword, Some(expr)) => Err(Control::Return(self.evaluate(expr)?)),
+            Stmt::Class(name, _methods) => {
+                self.environment
+                    .borrow_mut()
+                    .define(&name.lexeme, Rc::new(Object::Nil)); // TODO
+                let class = Rc::new(Object::Class(LoxClass::new(name.lexeme.clone())));
+                // TODO: reuse borrow_mut
+                self.environment.borrow_mut().assign(name, class)?;
+                Ok(())
+            }
         }
     }
 

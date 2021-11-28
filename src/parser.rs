@@ -89,6 +89,10 @@ fn _test_pretty_print() {
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
+    Class(
+        Token,     // name
+        Vec<Stmt>, // methods
+    ),
     If(
         Expr,              // condition
         Box<Stmt>,         // then branch
@@ -230,7 +234,9 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Result<Stmt, ParseError> {
-        if self.match_(&[TokenType::Fun]) {
+        if self.match_(&[TokenType::Class]) {
+            self.class_declaration()
+        } else if self.match_(&[TokenType::Fun]) {
             self.function(FunctionKind::Function)
         } else if self.match_(&[TokenType::Var]) {
             self.var_declaration()
@@ -241,6 +247,21 @@ impl Parser {
             self._synchronize();
             err
         })
+    }
+
+    fn class_declaration(&mut self) -> Result<Stmt, ParseError> {
+        let name = self.consume(TokenType::Identifier, "Expect class name.")?;
+        self.consume(TokenType::LeftBrace, "Expect '{' after class name.")?;
+
+        let mut methods = vec![];
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            let method = self.function(FunctionKind::Method)?;
+            methods.push(method);
+        }
+
+        self.consume(TokenType::RightBrace, "Expect '}' after class body.")?; // TODO
+
+        Ok(Stmt::Class(name, methods))
     }
 
     fn function(&mut self, kind: FunctionKind) -> Result<Stmt, ParseError> {
@@ -590,7 +611,6 @@ impl std::error::Error for ParseError {}
 #[derive(Debug)]
 pub(crate) enum FunctionKind {
     Function,
-    #[allow(unused)]
     Method,
 }
 
