@@ -123,13 +123,29 @@ impl Interpreter {
             }
             Stmt::Return(_keyword, None) => Err(Control::Return(Rc::new(Object::Nil))),
             Stmt::Return(_keyword, Some(expr)) => Err(Control::Return(self.evaluate(expr)?)),
-            Stmt::Class(name, _methods) => {
+            Stmt::Class(class_name, class_methods) => {
                 self.environment
                     .borrow_mut()
-                    .define(&name.lexeme, Rc::new(Object::Nil)); // TODO
-                let class = Rc::new(Object::Class(LoxClass::new(name.lexeme.clone())));
+                    .define(&class_name.lexeme, Rc::new(Object::Nil)); // TODO
+
+                let mut methods: HashMap<String, LoxFunction> = HashMap::default();
+                for method in class_methods {
+                    if let Stmt::Function(method_name, parameters, body) = method {
+                        let function = LoxFunction::new(
+                            method_name.lexeme.clone(),
+                            parameters,
+                            body,
+                            self.environment.clone(),
+                        );
+                        methods.insert(method_name.lexeme.clone(), function);
+                    }
+                }
+
+                let class = LoxClass::new(class_name.lexeme.clone(), methods);
+                let class = Rc::new(Object::Class(class));
+
                 // TODO: reuse borrow_mut
-                self.environment.borrow_mut().assign(name, class)?;
+                self.environment.borrow_mut().assign(class_name, class)?;
                 Ok(())
             }
         }

@@ -41,10 +41,20 @@ impl Resolver {
                 }
                 self.end_scope();
             }
-            Stmt::Class(name, _methods) => {
+            Stmt::Class(name, methods) => {
                 self.declare(&name.lexeme);
                 self.define(&name.lexeme);
-                // self.resolve_statements(methods);
+
+                // TODO: Can we push (name, params, body) into `methods` in `Parser`
+                // so we don't need to check if the method is actually a Function Stmt?
+                for method in methods {
+                    if let Stmt::Function(_name, parameters, body) = method {
+                        let declaration = FunctionKind::Method;
+                        self.resolve_function(parameters, body, declaration);
+                    } else {
+                        print_error(name, "Method wasn't a function.");
+                    }
+                }
             }
             Stmt::If(condition, then_branch, else_branch) => {
                 self.resolve_expression(condition);

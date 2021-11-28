@@ -65,6 +65,7 @@ impl Callable for Clock {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct LoxFunction {
     name: String,
     parameters: Vec<Token>,

@@ -1,8 +1,9 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::rc::Rc;
 
-use crate::callable::Callable;
+use crate::callable::{Callable, LoxFunction};
 use crate::interpreter::{Interpreter, RuntimeError};
 use crate::lox_instance::LoxInstance;
 use crate::object::Object;
@@ -11,11 +12,16 @@ use crate::token::Token;
 #[derive(Debug, Clone)]
 pub struct LoxClass {
     pub name: String,
+    pub methods: HashMap<String, LoxFunction>,
 }
 
 impl LoxClass {
-    pub fn new(name: String) -> Self {
-        Self { name }
+    pub fn new(name: String, methods: HashMap<String, LoxFunction>) -> Self {
+        Self { name, methods }
+    }
+
+    pub fn find_method(&self, name: &str) -> Option<&LoxFunction> {
+        self.methods.get(name)
     }
 }
 

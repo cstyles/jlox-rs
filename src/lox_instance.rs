@@ -21,7 +21,13 @@ impl LoxInstance {
     }
 
     pub fn get(&self, name: &Token) -> Option<Rc<Object>> {
-        self.fields.get(&name.lexeme).cloned()
+        self.fields.get(&name.lexeme).cloned().or_else(|| {
+            // If no field found, check for a method on the class
+            self.klass
+                .find_method(&name.lexeme)
+                .cloned()
+                .map(|method| Rc::new(Object::Callable(Box::new(method))))
+        })
     }
 
     pub fn set(&mut self, name: &Token, value: Rc<Object>) {
