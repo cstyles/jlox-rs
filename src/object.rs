@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::cmp::PartialOrd;
 use std::fmt::{Debug, Display};
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
@@ -16,7 +17,7 @@ pub enum Object {
     String(String),
     Callable(Box<dyn Callable>),
     Class(LoxClass), // TODO: collapse into Callable?
-    Instance(LoxInstance),
+    Instance(RefCell<LoxInstance>),
 }
 
 impl From<&Literal> for Object {
@@ -169,7 +170,7 @@ impl Display for Object {
             Object::String(string) => write!(f, "{}", string),
             Object::Callable(fun) => Debug::fmt(fun, f),
             Object::Class(class) => write!(f, "{}", class),
-            Object::Instance(instance) => write!(f, "{}", instance),
+            Object::Instance(instance) => write!(f, "{}", instance.borrow()),
         }
     }
 }

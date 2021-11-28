@@ -18,6 +18,15 @@ pub enum Expr {
         Token,     // closing parenthesis
         Vec<Expr>, // arguments
     ),
+    Get(
+        Box<Expr>, // object
+        Token,     // name
+    ),
+    Set(
+        Box<Expr>, // object
+        Token,     // name
+        Box<Expr>, // value
+    ),
     Grouping(Box<Expr>),
     Literal(token::Literal),
     Unary(
@@ -43,6 +52,8 @@ impl Display for Expr {
             Expr::Variable(name) => write!(f, "{}", name),
             Expr::Assign(name, expr) => write!(f, "{} = {}", name, expr),
             Expr::Call(callee, _paren, args) => write!(f, "{}({:?})", callee, args),
+            Expr::Get(object, name) => write!(f, "{}.{}", object, name),
+            Expr::Set(object, name, value) => write!(f, "{}.{} = {}", object, name, value),
         }
     }
 }
@@ -70,6 +81,10 @@ impl Expr {
 
     fn call(callee: Expr, paren: Token, arguments: Vec<Expr>) -> Self {
         Self::Call(Box::new(callee), paren, arguments)
+    }
+
+    fn set(object: Box<Self>, name: Token, value: Self) -> Self {
+        Self::Set(object, name, Box::new(value))
     }
 }
 
@@ -323,10 +338,10 @@ impl Parser {
             let equals = self.previous();
             let value = self.assignment()?;
 
-            if let Expr::Variable(name) = expr {
-                return Ok(Expr::assign(name, value));
-            } else {
-                print_error(equals, &format!("Invalid assignment target: {}", expr));
+            match expr {
+                Expr::Variable(name) => return Ok(Expr::assign(name, value)),
+                Expr::Get(object, name) => return Ok(Expr::set(object, name, value)),
+                _ => print_error(equals, &format!("Invalid assignment target: {}", expr)),
             }
         }
 
@@ -509,6 +524,10 @@ impl Parser {
         loop {
             if self.match_(&[TokenType::LeftParen]) {
                 expr = self.finish_call(expr)?;
+            } else if self.match_(&[TokenType::Dot]) {
+                let name =
+                    self.consume(TokenType::Identifier, "Expect property name after '.'.")?;
+                expr = Expr::Get(Box::new(expr), name);
             } else {
                 break;
             }

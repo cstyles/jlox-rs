@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
 
@@ -27,12 +28,12 @@ impl Display for LoxClass {
 impl Callable for LoxClass {
     fn call(
         &self,
-        interpreter: &mut Interpreter,
-        paren: &Token,
-        arguments: Vec<Rc<Object>>,
+        _interpreter: &mut Interpreter,
+        _paren: &Token,
+        _arguments: Vec<Rc<Object>>,
     ) -> Result<Rc<Object>, RuntimeError> {
         let instance = LoxInstance::new(self.clone());
-        Ok(Rc::new(Object::Instance(instance)))
+        Ok(Rc::new(Object::Instance(RefCell::new(instance))))
     }
 
     fn arity(&self) -> usize {

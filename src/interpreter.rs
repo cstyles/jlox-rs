@@ -43,6 +43,8 @@ impl Interpreter {
             Expr::Variable(name) => self.lookup_variable(name, expr),
             Expr::Assign(name, expr) => self.assign_variable(name, expr),
             Expr::Call(callee, paren, args) => self.evaluate_call(callee, paren, args),
+            Expr::Get(object, name) => self.evaluate_get(object, name),
+            Expr::Set(object, name, value) => self.evaluate_set(object, name, value),
         }
     }
 
@@ -245,6 +247,46 @@ impl Interpreter {
         };
 
         Ok(value)
+    }
+
+    fn evaluate_get(&mut self, object: &Expr, name: &Token) -> Result<Rc<Object>, RuntimeError> {
+        let object = self.evaluate(object)?;
+
+        if let Object::Instance(instance) = &*object {
+            if let Some(property) = instance.borrow().get(name) {
+                Ok(property)
+            } else {
+                Err(RuntimeError::new(
+                    name.clone(),
+                    format!("Undefined property '{}'.", name.lexeme),
+                ))
+            }
+        } else {
+            Err(RuntimeError::new(
+                name.clone(),
+                "Only instances have properties.",
+            ))
+        }
+    }
+
+    fn evaluate_set(
+        &mut self,
+        object: &Expr,
+        name: &Token,
+        value: &Expr,
+    ) -> Result<Rc<Object>, RuntimeError> {
+        let object = self.evaluate(object)?;
+
+        if let Object::Instance(instance) = &*object {
+            let value = self.evaluate(value)?;
+            instance.borrow_mut().set(name, value.clone());
+            Ok(value)
+        } else {
+            Err(RuntimeError::new(
+                name.clone(),
+                "Only instances have properties.",
+            ))
+        }
     }
 }
 

@@ -115,6 +115,11 @@ impl Resolver {
                 self.resolve_expression(value);
                 self.resolve_local(value, identifier);
             }
+            Expr::Get(object, _name) => self.resolve_expression(object),
+            Expr::Set(object, _name, value) => {
+                self.resolve_expression(value);
+                self.resolve_expression(object);
+            }
         }
     }
 
