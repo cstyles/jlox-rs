@@ -1,15 +1,14 @@
 use std::fmt::Display;
-use std::rc::Rc;
 
 use crate::lox_class::LoxClass;
 
 #[derive(Debug)]
 pub struct LoxInstance {
-    klass: Rc<LoxClass>,
+    klass: LoxClass,
 }
 
 impl LoxInstance {
-    pub fn new(klass: Rc<LoxClass>) -> Self {
+    pub fn new(klass: LoxClass) -> Self {
         Self { klass }
     }
 }

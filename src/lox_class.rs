@@ -31,7 +31,7 @@ impl Callable for LoxClass {
         paren: &Token,
         arguments: Vec<Rc<Object>>,
     ) -> Result<Rc<Object>, RuntimeError> {
-        let instance = LoxInstance::new(Rc::new(self.clone()));
+        let instance = LoxInstance::new(self.clone());
         Ok(Rc::new(Object::Instance(instance)))
     }
 
