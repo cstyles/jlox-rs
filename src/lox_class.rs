@@ -34,16 +34,24 @@ impl Display for LoxClass {
 impl Callable for LoxClass {
     fn call(
         &self,
-        _interpreter: &mut Interpreter,
-        _paren: &Token,
-        _arguments: Vec<Rc<Object>>,
+        interpreter: &mut Interpreter,
+        paren: &Token,
+        arguments: Vec<Rc<Object>>,
     ) -> Result<Rc<Object>, RuntimeError> {
         let instance = LoxInstance::new(self.clone());
+
+        let initializer = self.find_method("init").cloned();
+        if let Some(initializer) = initializer {
+            let _ = initializer
+                .bind(&instance)
+                .call(interpreter, paren, arguments);
+        }
+
         Ok(Rc::new(Object::Instance(RefCell::new(instance))))
     }
 
     fn arity(&self) -> usize {
-        0
+        self.find_method("init").map_or(0, |init| init.arity())
     }
 
     fn name(&self) -> &str {

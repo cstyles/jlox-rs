@@ -6,7 +6,7 @@ use crate::lox_class::LoxClass;
 use crate::object::Object;
 use crate::token::Token;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LoxInstance {
     klass: LoxClass,
     fields: HashMap<String, Rc<Object>>,
@@ -26,6 +26,7 @@ impl LoxInstance {
             self.klass
                 .find_method(&name.lexeme)
                 .cloned()
+                .map(|method| method.bind(self))
                 .map(|method| Rc::new(Object::Callable(Box::new(method))))
         })
     }

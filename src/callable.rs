@@ -1,8 +1,9 @@
 use crate::environment::Environment;
 use crate::interpreter::{Control, Interpreter, RuntimeError};
+use crate::lox_instance::LoxInstance;
 use crate::object::Object;
 use crate::parser::Stmt;
-use crate::token::Token;
+use crate::token::{Literal, Token, TokenType};
 
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -71,6 +72,7 @@ pub struct LoxFunction {
     parameters: Vec<Token>,
     body: Vec<Stmt>,
     closure: Rc<RefCell<Environment>>,
+    is_initializer: bool,
 }
 
 impl LoxFunction {
@@ -79,6 +81,7 @@ impl LoxFunction {
         parameters: &[Token],
         body: &[Stmt],
         closure: Rc<RefCell<Environment>>,
+        is_initializer: bool,
     ) -> Self {
         let parameters = parameters.to_vec();
         let body = body.to_vec();
@@ -88,7 +91,21 @@ impl LoxFunction {
             parameters,
             body,
             closure,
+            is_initializer,
         }
+    }
+
+    pub fn bind(self, instance: &LoxInstance) -> LoxFunction {
+        let instance = Rc::new(Object::Instance(RefCell::new(instance.clone())));
+        self.closure.borrow_mut().define("this", instance);
+
+        LoxFunction::new(
+            self.name,
+            &self.parameters,
+            &self.body,
+            self.closure,
+            self.is_initializer,
+        )
     }
 }
 
@@ -108,8 +125,37 @@ impl Callable for LoxFunction {
         }
 
         match interpreter.execute_block(&self.body, environment) {
-            Ok(()) => Ok(Rc::new(Object::Nil)),
-            Err(Control::Return(value)) => Ok(value),
+            Ok(()) => {
+                if self.is_initializer {
+                    // TODO: this is hacky
+                    let this_token = Token::new(
+                        TokenType::This,
+                        "this".into(),
+                        Literal::String("this".into()),
+                        paren.line,
+                        paren.column,
+                    );
+                    Environment::get_at(self.closure.clone(), 0, &this_token)
+                } else {
+                    // TODO: check if this can ever run
+                    Ok(Rc::new(Object::Nil))
+                }
+            }
+            Err(Control::Return(value)) => {
+                if self.is_initializer {
+                    // TODO: this is hacky
+                    let this_token = Token::new(
+                        TokenType::This,
+                        "this".into(),
+                        Literal::String("this".into()),
+                        paren.line,
+                        paren.column,
+                    );
+                    Environment::get_at(self.closure.clone(), 0, &this_token)
+                } else {
+                    Ok(value)
+                }
+            }
             Err(Control::Error(err)) => Err(err),
         }
     }

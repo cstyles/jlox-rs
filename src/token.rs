@@ -8,7 +8,7 @@ pub struct Token {
     pub(crate) lexeme: String,
     pub(crate) literal: Literal,
     pub(crate) line: usize,
-    column: usize,
+    pub(crate) column: usize,
 }
 
 impl Token {

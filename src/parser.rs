@@ -38,6 +38,7 @@ pub enum Expr {
         Token,     // identifier
         Box<Expr>, // value
     ),
+    This(Token), // keyword
 }
 
 impl Display for Expr {
@@ -54,6 +55,7 @@ impl Display for Expr {
             Expr::Call(callee, _paren, args) => write!(f, "{}({:?})", callee, args),
             Expr::Get(object, name) => write!(f, "{}.{}", object, name),
             Expr::Set(object, name, value) => write!(f, "{}.{} = {}", object, name, value),
+            Expr::This(_keyword) => write!(f, "this"),
         }
     }
 }
@@ -569,6 +571,8 @@ impl Parser {
             Ok(Expr::Literal(self.previous().literal))
         } else if self.match_(&[TokenType::Identifier]) {
             Ok(Expr::Variable(self.previous()))
+        } else if self.match_(&[TokenType::This]) {
+            Ok(Expr::This(self.previous()))
         } else if self.match_(&[TokenType::LeftParen]) {
             let expr = self.expression()?;
             self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
@@ -630,6 +634,7 @@ impl std::error::Error for ParseError {}
 #[derive(Debug)]
 pub(crate) enum FunctionKind {
     Function,
+    Initializer,
     Method,
 }
 
@@ -640,7 +645,25 @@ impl Display for FunctionKind {
             "{}",
             match self {
                 FunctionKind::Function => "function",
+                FunctionKind::Initializer => "initializer",
                 FunctionKind::Method => "method",
+            }
+        )
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum ClassKind {
+    Class,
+}
+
+impl Display for ClassKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ClassKind::Class => "classs",
             }
         )
     }

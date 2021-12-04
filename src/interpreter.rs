@@ -45,6 +45,7 @@ impl Interpreter {
             Expr::Call(callee, paren, args) => self.evaluate_call(callee, paren, args),
             Expr::Get(object, name) => self.evaluate_get(object, name),
             Expr::Set(object, name, value) => self.evaluate_set(object, name, value),
+            Expr::This(keyword) => self.lookup_variable(keyword, expr),
         }
     }
 
@@ -115,8 +116,13 @@ impl Interpreter {
                 Ok(())
             }
             Stmt::Function(name, params, body) => {
-                let function =
-                    LoxFunction::new(name.lexeme.clone(), params, body, self.environment.clone());
+                let function = LoxFunction::new(
+                    name.lexeme.clone(),
+                    params,
+                    body,
+                    self.environment.clone(),
+                    false,
+                );
                 let object = Rc::new(Object::Callable(Box::new(function)));
                 self.environment.borrow_mut().define(&name.lexeme, object);
                 Ok(())
@@ -136,8 +142,11 @@ impl Interpreter {
                             parameters,
                             body,
                             self.environment.clone(),
+                            method_name.lexeme == "init",
                         );
                         methods.insert(method_name.lexeme.clone(), function);
+                    } else {
+                        unreachable!("Statement ({:?}) wasn't a method.", method);
                     }
                 }
 
